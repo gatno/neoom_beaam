@@ -465,6 +465,42 @@ THING_SENSORS: tuple[BeaamThingSensorDescription, ...] = (
 )
 
 
+# The BEAAM occasionally re-reports a total energy counter slightly lower than
+# before (internal recalculation, e.g. 39141300 Wh → 39141000 Wh). The recorder
+# then logs "state class total_increasing, but its state is not strictly
+# increasing" and treats the dip as a meter reset, which corrupts the
+# statistics. Small backwards steps are clamped to the last value; a large drop
+# is passed through, since that is a genuine counter reset.
+MONOTONIC_TOLERANCE = 0.02  # fraction of the last value
+
+
+class MonotonicMixin:
+    """Suppresses tiny backwards steps on TOTAL_INCREASING sensors."""
+
+    _last_total: float | None = None
+
+    def _monotonic(self, value: Any) -> Any:
+        if self.entity_description.state_class != SensorStateClass.TOTAL_INCREASING:
+            return value
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return value
+
+        last = self._last_total
+        if last is not None and value < last:
+            if last - value <= abs(last) * MONOTONIC_TOLERANCE:
+                _LOGGER.debug(
+                    "%s: ignoring %s Wh dip below last value %s",
+                    self.entity_id, last - value, last,
+                )
+                return last
+            _LOGGER.debug(
+                "%s: counter reset detected (%s → %s)", self.entity_id, last, value
+            )
+
+        self._last_total = value
+        return value
+
+
 def _apply_transform(raw: float | None, transform: str) -> float | None:
     if raw is None:
         return None
@@ -534,7 +570,7 @@ async def async_setup_entry(
 # Sensor implementations
 # ---------------------------------------------------------------------------
 
-class BeaamSiteSensor(BeaamBaseEntity, SensorEntity):
+class BeaamSiteSensor(MonotonicMixin, BeaamBaseEntity, SensorEntity):
     """Sensor for a site-level energy flow data point."""
 
     entity_description: BeaamSiteSensorDescription
@@ -553,10 +589,10 @@ class BeaamSiteSensor(BeaamBaseEntity, SensorEntity):
         site_state = self.coordinator.data.get("site_state", {})
         states = site_state.get("energyFlow", {}).get("states", [])
         raw = BeaamApiClient.extract_state_value(states, self.entity_description.dp_key)
-        return _apply_transform(raw, self.entity_description.value_transform)
+        return self._monotonic(_apply_transform(raw, self.entity_description.value_transform))
 
 
-class BeaamThingSensor(BeaamBaseEntity, SensorEntity):
+class BeaamThingSensor(MonotonicMixin, BeaamBaseEntity, SensorEntity):
     """Sensor for a per-Thing data point."""
 
     entity_description: BeaamThingSensorDescription
@@ -582,4 +618,4 @@ class BeaamThingSensor(BeaamBaseEntity, SensorEntity):
         # ERROR_CODES is a list — join to a readable string
         if isinstance(value, list):
             return ", ".join(str(v) for v in value) if value else "OK"
-        return value
+        return self._monotonic(value)

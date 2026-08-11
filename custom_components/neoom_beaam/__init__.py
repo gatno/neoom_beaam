@@ -41,6 +41,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except BeaamApiError as err:
         raise ConfigEntryNotReady(f"BEAAM at {host} not reachable: {err}") from err
 
+    # Entries created before the site id was known are keyed by host. Move them
+    # over once, so a later IP change no longer breaks the entry's identity.
+    site_id = coordinator.site_id
+    if site_id and entry.unique_id != site_id:
+        _LOGGER.debug("Migrating unique_id %s → %s", entry.unique_id, site_id)
+        hass.config_entries.async_update_entry(entry, unique_id=site_id)
+
     # Initial data fetch
     await coordinator.async_config_entry_first_refresh()
 

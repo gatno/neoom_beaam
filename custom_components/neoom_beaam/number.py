@@ -12,16 +12,21 @@ from homeassistant.components.number import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfElectricCurrent, UnitOfPower
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .api import BeaamApiClient
+from .api import BeaamApiClient, BeaamApiError
 from .const import DOMAIN
 from .coordinator import BeaamCoordinator
 from .entity_base import BeaamBaseEntity, async_setup_dynamic_entities
 
 _LOGGER = logging.getLogger(__name__)
+
+# How many polls an optimistically shown value survives before the device's own
+# reading takes over again.
+PENDING_MAX_POLLS = 6
 
 
 @dataclass(frozen=True)
@@ -198,9 +203,12 @@ class BeaamReserveNumber(BeaamBaseEntity, NumberEntity):
         super().__init__(coordinator, f"thing_{thing_id}_{description.key}", device_info)
         self.entity_description = description
         self._thing_id = thing_id
+        # Value written but not yet confirmed by the device — see _pending below.
+        self._pending_value: float | None = None
+        self._pending_polls = 0
 
-    @property
-    def native_value(self) -> float | None:
+    def _reported_value(self) -> float | None:
+        """Return the value the BEAAM currently reports, reserve already removed."""
         thing_data = self.coordinator.data.get("things", {}).get(self._thing_id)
         if not thing_data:
             return None
@@ -210,6 +218,24 @@ class BeaamReserveNumber(BeaamBaseEntity, NumberEntity):
             return None
         # Subtract system reserve so the user sees the "real" target
         return max(0.0, float(val) - self.entity_description.system_reserve)
+
+    @property
+    def native_value(self) -> float | None:
+        if self._pending_value is not None:
+            return self._pending_value
+        return self._reported_value()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Drop the optimistic value once the device confirms it."""
+        if self._pending_value is not None:
+            self._pending_polls += 1
+            # Give the BEAAM a few cycles to apply the change; stop overriding
+            # afterwards so a rejected write does not stay visible forever.
+            if self._reported_value() == self._pending_value or self._pending_polls >= PENDING_MAX_POLLS:
+                self._pending_value = None
+                self._pending_polls = 0
+        super()._handle_coordinator_update()
 
     async def async_set_native_value(self, value: float) -> None:
         """Write the new value to the BEAAM, adding the system reserve back."""
@@ -221,8 +247,18 @@ class BeaamReserveNumber(BeaamBaseEntity, NumberEntity):
             value,
             api_value,
         )
-        await self.coordinator.client.set_thing_states(
-            self._thing_id,
-            [{"key": self.entity_description.dp_key, "value": api_value}],
-        )
+        try:
+            await self.coordinator.client.set_thing_states(
+                self._thing_id,
+                [{"key": self.entity_description.dp_key, "value": api_value}],
+            )
+        except BeaamApiError as err:
+            raise HomeAssistantError(
+                f"Konnte {self.entity_description.dp_key} nicht auf {value} setzen: {err}"
+            ) from err
+
+        # Show the new value straight away instead of waiting for the next poll.
+        self._pending_value = value
+        self._pending_polls = 0
+        self.async_write_ha_state()
         await self.coordinator.async_request_refresh()

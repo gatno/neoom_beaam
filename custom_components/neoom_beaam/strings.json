@@ -1,0 +1,53 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "neoom BEAAM verbinden",
+        "description": "Gib die IP-Adresse deines BEAAM und den API-Schlüssel ein.\n\nDen API-Schlüssel findest du unter **connect.neoom.com → API Schlüssel → Schlüssel für BEAAM API**.",
+        "data": {
+          "host": "IP-Adresse des BEAAM",
+          "api_key": "BEAAM API-Schlüssel",
+          "scan_interval": "Abfrageintervall (Sekunden)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "neoom BEAAM neu authentifizieren",
+        "description": "Der API-Schlüssel für {host} wird nicht mehr akzeptiert. Lege unter **connect.neoom.com → API Schlüssel** einen neuen an und trage ihn hier ein.",
+        "data": {
+          "api_key": "BEAAM API-Schlüssel"
+        }
+      },
+      "reconfigure": {
+        "title": "neoom BEAAM neu konfigurieren",
+        "description": "Ändere die IP-Adresse, wenn dein BEAAM eine neue bekommen hat. Der API-Schlüssel bleibt unverändert, wenn du das Feld leer lässt.",
+        "data": {
+          "host": "IP-Adresse des BEAAM",
+          "api_key": "BEAAM API-Schlüssel (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum BEAAM fehlgeschlagen. Prüfe die IP-Adresse.",
+      "invalid_auth": "Ungültiger API-Schlüssel.",
+      "wrong_device": "Unter dieser Adresse antwortet ein anderer BEAAM. Richte ihn als eigene Integration ein.",
+      "unknown": "Unbekannter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieser BEAAM ist bereits eingerichtet.",
+      "reauth_successful": "Der neue API-Schlüssel wurde übernommen.",
+      "reauth_failed": "Die Integration konnte nicht gefunden werden.",
+      "reconfigure_successful": "Die Konfiguration wurde aktualisiert.",
+      "reconfigure_failed": "Die Integration konnte nicht gefunden werden."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "neoom BEAAM Optionen",
+        "data": {
+          "scan_interval": "Abfrageintervall (Sekunden)"
+        }
+      }
+    }
+  }
+}

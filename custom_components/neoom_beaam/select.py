@@ -6,16 +6,21 @@ from dataclasses import dataclass, field
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .api import BeaamApiClient
+from .api import BeaamApiClient, BeaamApiError
 from .const import DOMAIN
 from .coordinator import BeaamCoordinator
 from .entity_base import BeaamBaseEntity, async_setup_dynamic_entities
 
 _LOGGER = logging.getLogger(__name__)
+
+# How many polls an optimistically shown option survives before the device's own
+# reading takes over again.
+PENDING_MAX_POLLS = 6
 
 
 @dataclass(frozen=True)
@@ -134,9 +139,11 @@ class BeaamSelectEntity(BeaamBaseEntity, SelectEntity):
         self.entity_description = description
         self._thing_id = thing_id
         self._attr_options = description.options
+        # Option written but not yet confirmed by the device.
+        self._pending_option: str | None = None
+        self._pending_polls = 0
 
-    @property
-    def current_option(self) -> str | None:
+    def _reported_option(self) -> str | None:
         thing_data = self.coordinator.data.get("things", {}).get(self._thing_id)
         if not thing_data:
             return None
@@ -155,6 +162,25 @@ class BeaamSelectEntity(BeaamBaseEntity, SelectEntity):
             self._attr_options = [*self._attr_options, value]
         return value
 
+    @property
+    def current_option(self) -> str | None:
+        if self._pending_option is not None:
+            return self._pending_option
+        return self._reported_option()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Drop the optimistic option once the device confirms it."""
+        if self._pending_option is not None:
+            self._pending_polls += 1
+            if (
+                self._reported_option() == self._pending_option
+                or self._pending_polls >= PENDING_MAX_POLLS
+            ):
+                self._pending_option = None
+                self._pending_polls = 0
+        super()._handle_coordinator_update()
+
     async def async_select_option(self, option: str) -> None:
         """Send the selected option to the BEAAM."""
         _LOGGER.debug(
@@ -163,8 +189,18 @@ class BeaamSelectEntity(BeaamBaseEntity, SelectEntity):
             self._thing_id,
             option,
         )
-        await self.coordinator.client.set_thing_states(
-            self._thing_id,
-            [{"key": self.entity_description.dp_key, "value": option}],
-        )
+        try:
+            await self.coordinator.client.set_thing_states(
+                self._thing_id,
+                [{"key": self.entity_description.dp_key, "value": option}],
+            )
+        except BeaamApiError as err:
+            raise HomeAssistantError(
+                f"Konnte {self.entity_description.dp_key} nicht auf '{option}' setzen: {err}"
+            ) from err
+
+        # Show the new option straight away instead of waiting for the next poll.
+        self._pending_option = option
+        self._pending_polls = 0
+        self.async_write_ha_state()
         await self.coordinator.async_request_refresh()

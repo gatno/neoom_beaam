@@ -24,6 +24,58 @@ MAX_PARALLEL_REQUESTS = 4
 MAX_FAILED_POLLS = 3
 
 
+# How often to re-read /site/configuration, expressed in poll cycles. Picking up
+# a newly added Thing should not require reloading the integration.
+CONFIG_REFRESH_EVERY = 60
+
+
+def extract_site_id(config: dict) -> str | None:
+    """Return a stable identifier for the site from /site/configuration.
+
+    Used as the config entry's unique_id so the entry survives an IP change.
+    The BEAAM firmware is not consistent about where it puts this, so a few
+    spellings are tried; None means "fall back to the host".
+    """
+    if not isinstance(config, dict):
+        return None
+    site_info = config.get("siteInfo") if isinstance(config.get("siteInfo"), dict) else {}
+    for source in (site_info, config):
+        for key in ("siteId", "id", "uuid", "serialNumber"):
+            value = source.get(key)
+            if isinstance(value, (str, int)) and str(value).strip():
+                return str(value).strip()
+    return None
+
+
+def _merge_states(previous: Any, current: Any) -> list[dict]:
+    """Overlay a fresh states list onto the previous snapshot.
+
+    The BEAAM sometimes answers with only a subset of its data points — or with
+    an explicit null value — while a sub-device reconnects. The response is
+    valid JSON, so the request-level fallback below does not catch it and every
+    affected sensor would flip to "unknown" until the device recovers. Keeping
+    the last known value per data point makes those gaps invisible.
+    """
+    if not isinstance(current, list):
+        return previous if isinstance(previous, list) else []
+
+    merged: dict[str, dict] = {}
+    if isinstance(previous, list):
+        for item in previous:
+            if isinstance(item, dict) and item.get("key"):
+                merged[item["key"]] = item
+
+    for item in current:
+        if not isinstance(item, dict) or not item.get("key"):
+            continue
+        if item.get("value") is None and item["key"] in merged:
+            # Data point present but empty — keep the last real reading.
+            continue
+        merged[item["key"]] = item
+
+    return list(merged.values())
+
+
 class BeaamCoordinator(DataUpdateCoordinator):
     """Fetches site state + per-thing states from the local BEAAM API."""
 
@@ -44,8 +96,10 @@ class BeaamCoordinator(DataUpdateCoordinator):
         # Populated in async_load_site_configuration().
         self._things: list[dict] = []
         self._site_coordinates: tuple[float, float] | None = None
+        self._site_id: str | None = None
         self._semaphore = asyncio.Semaphore(MAX_PARALLEL_REQUESTS)
         self._failed_polls = 0
+        self._polls_since_config_refresh = 0
 
     # ------------------------------------------------------------------
     # Initialisation: load site configuration to discover Things
@@ -72,6 +126,7 @@ class BeaamCoordinator(DataUpdateCoordinator):
         """
         config = await self.client.get_site_configuration()
         raw_things = config.get("things", {})
+        self._site_id = extract_site_id(config)
 
         # Store geo coordinates for site DeviceInfo
         geo = config.get("siteInfo", {}).get("geoCoordinates", {})
@@ -155,6 +210,11 @@ class BeaamCoordinator(DataUpdateCoordinator):
         return self._things
 
     @property
+    def site_id(self) -> str | None:
+        """Stable site identifier, or None if the firmware does not report one."""
+        return self._site_id
+
+    @property
     def site_coordinates(self) -> tuple[float, float] | None:
         """Return (latitude, longitude) from site configuration, or None."""
         return self._site_coordinates
@@ -202,6 +262,17 @@ class BeaamCoordinator(DataUpdateCoordinator):
         """
         previous = self.data or {}
 
+        # Periodically re-read the site configuration so a Thing added to the
+        # BEAAM shows up without reloading the integration. A failure here is
+        # not fatal — the existing list stays in use.
+        self._polls_since_config_refresh += 1
+        if self._polls_since_config_refresh >= CONFIG_REFRESH_EVERY:
+            self._polls_since_config_refresh = 0
+            try:
+                await self.async_load_site_configuration()
+            except BeaamApiError as err:
+                _LOGGER.debug("Could not refresh site configuration: %s", err)
+
         try:
             site_state = await self.client.get_site_state()
         except BeaamApiError as err:
@@ -209,12 +280,22 @@ class BeaamCoordinator(DataUpdateCoordinator):
             if self._failed_polls < MAX_FAILED_POLLS and previous:
                 # Transient glitch — keep serving the last known values instead
                 # of blanking every entity out.
-                _LOGGER.debug(
+                _LOGGER.warning(
                     "Site state poll %d/%d failed, keeping previous data: %s",
                     self._failed_polls, MAX_FAILED_POLLS, err,
                 )
                 return previous
             raise UpdateFailed(f"Error fetching site state: {err}") from err
+
+        # Carry forward data points the BEAAM left out of this response.
+        previous_site = previous.get("site_state") or {}
+        if isinstance(site_state, dict):
+            merged_flow = dict(site_state.get("energyFlow") or {})
+            merged_flow["states"] = _merge_states(
+                (previous_site.get("energyFlow") or {}).get("states"),
+                merged_flow.get("states"),
+            )
+            site_state = {**site_state, "energyFlow": merged_flow}
 
         thing_ids = [t["id"] for t in self._things if t.get("id")]
 
@@ -233,7 +314,14 @@ class BeaamCoordinator(DataUpdateCoordinator):
         for thing_id, data in results:
             # Fall back to the last successful snapshot so a single missed
             # request does not push the thing's sensors to "unknown".
-            things_data[thing_id] = data if data is not None else previous_things.get(thing_id)
+            if data is None:
+                things_data[thing_id] = previous_things.get(thing_id)
+                continue
+            prev = previous_things.get(thing_id) or {}
+            things_data[thing_id] = {
+                **data,
+                "states": _merge_states(prev.get("states"), data.get("states")),
+            }
 
         self._failed_polls = 0
 

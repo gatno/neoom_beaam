@@ -1,0 +1,53 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect neoom BEAAM",
+        "description": "Enter the IP address of your BEAAM and the API key.\n\nYou can find the API key at **connect.neoom.com → API keys → key for BEAAM API**.",
+        "data": {
+          "host": "BEAAM IP address",
+          "api_key": "BEAAM API key",
+          "scan_interval": "Polling interval (seconds)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate neoom BEAAM",
+        "description": "The API key for {host} is no longer accepted. Create a new one at **connect.neoom.com → API keys** and enter it here.",
+        "data": {
+          "api_key": "BEAAM API key"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure neoom BEAAM",
+        "description": "Change the IP address if your BEAAM received a new one. Leave the API key empty to keep the current one.",
+        "data": {
+          "host": "BEAAM IP address",
+          "api_key": "BEAAM API key (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the BEAAM. Check the IP address.",
+      "invalid_auth": "Invalid API key.",
+      "wrong_device": "A different BEAAM answered at this address. Set it up as its own integration.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This BEAAM is already configured.",
+      "reauth_successful": "The new API key was applied.",
+      "reauth_failed": "The integration entry could not be found.",
+      "reconfigure_successful": "The configuration was updated.",
+      "reconfigure_failed": "The integration entry could not be found."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "neoom BEAAM options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  }
+}

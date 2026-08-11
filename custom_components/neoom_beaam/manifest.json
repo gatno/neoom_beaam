@@ -1,0 +1,14 @@
+{
+  "domain": "neoom_beaam",
+  "name": "neoom BEAAM",
+  "version": "1.2.0",
+  "config_flow": true,
+  "documentation": "https://github.com/gatno/neoom_beaam",
+  "issue_tracker": "https://github.com/gatno/neoom_beaam/issues",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@gatno"],
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "homeassistant": "2024.4.0"
+}
