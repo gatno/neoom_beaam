@@ -39,10 +39,15 @@ Die Energiezähler nutzen `state_class: total_increasing` und lassen sich direkt
 
 ### Über HACS (empfohlen)
 
+[![Repository zu HACS hinzufügen][my-ha-badge]][my-ha-url]
+
+Ein Klick auf den Button oben öffnet HACS in deiner Home-Assistant-Instanz mit bereits
+vorausgefülltem Repository. Alternativ von Hand:
+
 1. HACS öffnen → **Integrationen** → Menü oben rechts → **Benutzerdefinierte Repositories**
 2. Repository `https://github.com/gatno/neoom_beaam` hinzufügen, Kategorie **Integration**
-3. „neoom BEAAM" suchen, **Herunterladen**
-4. Home Assistant neu starten
+
+Danach in beiden Fällen: „neoom BEAAM" **herunterladen** und Home Assistant **neu starten**.
 
 ### Manuell
 
@@ -145,6 +150,8 @@ Förderbedingungen vereinbar sind.
 [api-docs]: https://developer.neoom.com/reference/interacting-with-your-beaam
 [issues]: https://github.com/gatno/neoom_beaam/issues
 [unofficial-badge]: https://img.shields.io/badge/nicht%20offiziell-kein%20neoom%20Projekt-orange
+[my-ha-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[my-ha-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=gatno&repository=neoom_beaam&category=integration
 [hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
 [hacs-url]: https://github.com/hacs/integration
 [release-badge]: https://img.shields.io/github/v/release/gatno/neoom_beaam

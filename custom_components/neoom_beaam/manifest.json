@@ -9,6 +9,5 @@
   "dependencies": [],
   "codeowners": ["@gatno"],
   "integration_type": "hub",
-  "iot_class": "local_polling",
-  "homeassistant": "2024.4.0"
+  "iot_class": "local_polling"
 }
