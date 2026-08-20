@@ -23,6 +23,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # The domain is not registered in home-assistant/brands, which is only
-          # required for integrations in the official HACS default list.
-          ignore: brands
