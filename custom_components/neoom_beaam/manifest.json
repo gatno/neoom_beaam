@@ -1,13 +1,13 @@
 {
   "domain": "neoom_beaam",
   "name": "neoom BEAAM",
-  "version": "1.2.0",
+  "codeowners": ["@gatno"],
   "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/gatno/neoom_beaam",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
   "issue_tracker": "https://github.com/gatno/neoom_beaam/issues",
   "requirements": [],
-  "dependencies": [],
-  "codeowners": ["@gatno"],
-  "integration_type": "hub",
-  "iot_class": "local_polling"
+  "version": "1.2.0"
 }
