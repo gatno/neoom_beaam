@@ -6,6 +6,3 @@ venv/
 .vscode/
 .claude/
 .DS_Store
-
-# Assets für den home-assistant/brands PR (gehören nicht in dieses Repo)
-brands/
