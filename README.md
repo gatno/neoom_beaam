@@ -1,6 +1,5 @@
 # neoom BEAAM für Home Assistant
 
-[![hacs][hacs-badge]][hacs-url]
 [![release][release-badge]][release-url]
 ![inoffiziell][unofficial-badge]
 
@@ -37,17 +36,21 @@ Die Energiezähler nutzen `state_class: total_increasing` und lassen sich direkt
 
 ## Installation
 
-### Über HACS (empfohlen)
+### Über den Home Assistant Marketplace (ehemals HACS, empfohlen)
 
-[![Repository zu HACS hinzufügen][my-ha-badge]][my-ha-url]
+[![In Home Assistant installieren][install-badge]][install-url]
 
-Ein Klick auf den Button oben öffnet HACS in deiner Home-Assistant-Instanz mit bereits
-vorausgefülltem Repository. Alternativ von Hand:
+Der Button öffnet die Integration direkt in Home Assistant. Dort kannst du sie im
+Marketplace herunterladen.
 
-1. HACS öffnen → **Integrationen** → Menü oben rechts → **Benutzerdefinierte Repositories**
-2. Repository `https://github.com/gatno/neoom_beaam` hinzufügen, Kategorie **Integration**
+1. Marketplace öffnen und zu **Integrationen** wechseln.
+2. Nach **neoom BEAAM** suchen und die Integration **herunterladen**.
+3. Home Assistant **neu starten**.
 
-Danach in beiden Fällen: „neoom BEAAM" **herunterladen** und Home Assistant **neu starten**.
+Das Repository muss normalerweise nicht manuell hinzugefügt werden. Falls die
+Integration nicht angezeigt wird, aktualisiere den Marketplace bzw. deine HACS-Installation.
+Bei älteren Installationen kannst du das Repository `https://github.com/gatno/neoom_beaam`
+unter **Benutzerdefinierte Repositories** mit der Kategorie **Integration** ergänzen.
 
 ### Manuell
 
@@ -149,10 +152,8 @@ Förderbedingungen vereinbar sind.
 [neoom-connect]: https://connect.neoom.com
 [api-docs]: https://developer.neoom.com/reference/interacting-with-your-beaam
 [issues]: https://github.com/gatno/neoom_beaam/issues
+[install-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[install-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=gatno&repository=neoom_beaam&category=integration
 [unofficial-badge]: https://img.shields.io/badge/nicht%20offiziell-kein%20neoom%20Projekt-orange
-[my-ha-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
-[my-ha-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=gatno&repository=neoom_beaam&category=integration
-[hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
-[hacs-url]: https://github.com/hacs/integration
 [release-badge]: https://img.shields.io/github/v/release/gatno/neoom_beaam
 [release-url]: https://github.com/gatno/neoom_beaam/releases
